@@ -1,0 +1,22 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "BUS310 server",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jptwedt/CalPolyBUS310Winter20202-Techbuds.git"
+  },
+  "author": "John Twedt",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jptwedt/CalPolyBUS310Winter20202-Techbuds/issues"
+  },
+  "homepage": "https://github.com/jptwedt/CalPolyBUS310Winter20202-Techbuds#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
