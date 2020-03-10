@@ -17,14 +17,14 @@ io.on('connection', function(socket){
 
    console.log('a user connected');
 
-   socket.on('chat message', function(msg){
-      console.log('message: ' + msg);
-      io.emit('chat message', msg);
+   socket.on('techLocation', function(msg){
+      console.log('techLocation: ' + msg);
+      io.emit('techLocation', msg);
    });
 
-   socket.on('LOCATE', function(msg){
-      console.log('location: ' + msg);
-      io.emit('LOCATE', msg);
+   socket.on('clientLocation', function(msg){
+      console.log('clientLocation: ' + msg);
+      io.emit('clientLocation', msg);
    });
 
    socket.on('disconnect', function(){
