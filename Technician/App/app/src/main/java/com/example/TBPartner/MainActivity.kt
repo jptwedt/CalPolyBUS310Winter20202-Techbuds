@@ -1,9 +1,12 @@
-package com.example.techbuds
+package com.example.TBPartner
 
 import android.location.Location
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
+import android.view.View
+import android.widget.Button
+import android.widget.RadioButton
 import androidx.appcompat.app.AppCompatActivity
 import com.github.nkzawa.emitter.Emitter
 import com.github.nkzawa.socketio.client.IO
@@ -24,21 +27,20 @@ import java.net.URISyntaxException
 
 
 public class MainActivity : AppCompatActivity(), OnMapReadyCallback,
-        GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener,
-        LocationListener {
+    GoogleApiClient.ConnectionCallbacks,
+    GoogleApiClient.OnConnectionFailedListener,
+    LocationListener {
     private lateinit var mMap: GoogleMap;
-    //private val SERVERURL = "http://10.0.2.2:3000"
     private val SERVERURL = "http://52.89.101.6:3000"
     private lateinit var mSocket: Socket
     private lateinit var fusedLocationClient:FusedLocationProviderClient
     private var locReq: LocationRequest? = null;
-    private var techLoc = LatLng(35.300422, -120.664504)
-    private var myLoc = LatLng(35.299986, -120.664435)
-    private var techMarker: Marker? = null
+    private var myLoc = LatLng(35.300422, -120.664504)
+    private var clientLoc = LatLng(35.299986, -120.664435)
+    private var clientMarker: Marker? = null
     private lateinit var locCallback:LocationCallback
-    private val LOCTAG = "clientLocation"
-    private val DBGTAG = "clientDebug"
+    private val LOCTAG = "techLocation"
+    private val DBGTAG = "techDebug"
     private var msg = ""
     private val onNewMessage = Emitter.Listener { args ->
         runOnUiThread(Runnable {
@@ -47,16 +49,18 @@ public class MainActivity : AppCompatActivity(), OnMapReadyCallback,
             val longitude:Double;
 
             try {
-                latitude = data.getString("techlat").toDouble()
-                longitude = data.getString("techlong").toDouble()
-                techLoc = LatLng(latitude.toDouble(), longitude.toDouble())
-                Log.d("techLocation", "" + techLoc.latitude +
-                        ";" + techLoc.longitude)
+                latitude = data.getString("clientlat").toDouble()
+                longitude = data.getString("clientlong").toDouble()
+                clientLoc = LatLng(latitude.toDouble(), longitude.toDouble())
+                Log.d("clientLocation", "" + clientLoc.latitude +
+                        ";" + clientLoc.longitude)
+                animateMap()
             } catch (e: JSONException) {
                 return@Runnable
             }
         })
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -65,10 +69,10 @@ public class MainActivity : AppCompatActivity(), OnMapReadyCallback,
         socket()
         mSocket.connect()
 
-        Log.d(DBGTAG, "oncreate location")
+        Log.d(DBGTAG, "technician app created")
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         val mapFragment = supportFragmentManager
-                .findFragmentById(R.id.map) as SupportMapFragment
+            .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
         locCallback = object : LocationCallback() {
@@ -78,7 +82,6 @@ public class MainActivity : AppCompatActivity(), OnMapReadyCallback,
                     myLoc = LatLng(location.latitude, location.longitude)
                     msg = "" + location.latitude + ";" + location.longitude;
                     posChangeNotify(LOCTAG, msg)
-                    animateMap()
                 }
             }
         }
@@ -93,8 +96,7 @@ public class MainActivity : AppCompatActivity(), OnMapReadyCallback,
                 myLoc = LatLng(location.latitude, location.longitude)
                 msg = "" + location.latitude + ";" + location.longitude;
 
-                Log.d(LOCTAG, msg)
-                attemptSend(LOCTAG, msg)
+                posChangeNotify(LOCTAG, msg)
             }
         }
     }
@@ -111,33 +113,31 @@ public class MainActivity : AppCompatActivity(), OnMapReadyCallback,
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
         mMap.mapType = GoogleMap.MAP_TYPE_HYBRID;
-        msg = "map ready"
+        msg = "technician map ready"
 
-        attemptSend(DBGTAG, msg)
-        Log.d(DBGTAG, msg)
+        statusChangeNotify(DBGTAG, msg)
 
         animateMap()
     }
 
     override fun onConnected(p0: Bundle?) {
-        msg = "connected"
-        statusChangeNotify(DBGTAG, msg)
+        msg = "technician connected"
+        posChangeNotify(DBGTAG, msg)
     }
 
     override fun onConnectionSuspended(p0: Int) {
-        msg = "connection suspended"
-        statusChangeNotify(DBGTAG, msg)
+        msg = "technician connection suspended"
+        posChangeNotify(DBGTAG, msg)
     }
 
     override fun onConnectionFailed(p0: ConnectionResult) {
-        msg = "connection failed"
-        statusChangeNotify(DBGTAG, msg)
+        msg = "technician connection failed"
+        posChangeNotify(DBGTAG, msg)
     }
 
     override fun onLocationChanged(location: Location?) {
-        Log.d(DBGTAG, "location changed")
         if (location != null) {
-            msg = "New location is:\n\tLatitude " + location.latitude +
+            msg = "technician changed location is:\n\tLatitude " + location.latitude +
                     "\n\tLongitude: " + location.longitude + "\n"
             statusChangeNotify(DBGTAG, msg)
         }
@@ -146,20 +146,19 @@ public class MainActivity : AppCompatActivity(), OnMapReadyCallback,
     override fun onResume() {
         super.onResume()
         startLocationUpdates()
-        statusChangeNotify(DBGTAG, "client resuming")
+        statusChangeNotify(DBGTAG, "technician resuming")
     }
 
     private fun startLocationUpdates() {
         fusedLocationClient.requestLocationUpdates(locReq, locCallback, Looper.getMainLooper())
-        statusChangeNotify(DBGTAG, "client updating location")
+        statusChangeNotify(DBGTAG, "technician starting location updates")
     }
 
 
     private fun socket(){
-        Log.d("LOCATE", "socket init")
         try{
             mSocket=IO.socket(SERVERURL)
-            mSocket.on("servertechpos", onNewMessage)
+            mSocket.on("serverclientpos", onNewMessage)
         }
         catch(e:URISyntaxException){
             e.printStackTrace()
@@ -190,16 +189,37 @@ public class MainActivity : AppCompatActivity(), OnMapReadyCallback,
 
     private fun animateMap(){
         if(mMap != null) {
-            if (techMarker == null) {
-                techMarker = mMap.addMarker(MarkerOptions().position(myLoc).title("Technician"))
+            if (clientMarker == null) {
+                clientMarker = mMap.addMarker(MarkerOptions().position(clientLoc).title("Client"))
             } else {
-                techMarker!!.position = techLoc
+                clientMarker!!.position = clientLoc
             }
 
             mMap.animateCamera(
                 CameraUpdateFactory
-                    .newLatLngZoom(techLoc, 20.0f)
+                    .newLatLngZoom(clientLoc, 20.0f)
             )
+        }
+    }
+
+    fun onRadioButtonClicked(view:View){
+        if(view is RadioButton){
+            val checked = view.isChecked
+
+            when(view.getId()){
+                R.id.radioStart -> {
+                    if (checked) {
+                        attemptSend("jobStart", "Technician begin")
+                        statusChangeNotify("startBtn", "pressed")
+                    }
+                }
+                R.id.radioEnd -> {
+                    if (checked) {
+                        attemptSend("jobEnd", "Technician complete")
+                        statusChangeNotify("endBtn", "pressed")
+                    }
+                }
+            }
         }
     }
 }
